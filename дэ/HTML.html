@@ -1,0 +1,181 @@
+< !DOCTYPE html >
+< html >
+< head >
+    < title > Логин </ title >
+</ head >
+< body >
+    < h1 > Войти в систему</h1>
+    <form method = "POST" >
+        Логин: < input type = "text" name = "username" required >< br >
+        Пароль: < input type = "password" name = "password" required >< br >
+        < input type = "submit" value = "Войти" >
+    </ form >
+    < p >{ { get_flashed_messages() } }
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Панель управления</title>
+</head>
+<body>
+    <h1>Добро пожаловать, {{ username }}!</h1>
+    <p>Ваша роль: {{ role }}</p>
+    <a href="{{ url_for('logout') }}">Выйти</a>
+    <br>
+    <a href="{{ url_for('admin_panel') }}">Admin Panel</a>
+    <a href="{{ url_for('user_panel') }}">User Panel</a>
+</body>
+</html>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Админ-панель</title>
+</head>
+<body>
+    <h1>Админ-панель</h1>
+    <p>Только для администраторов.</p>
+    <a href="{{ url_for('dashboard') }}">Назад</a>
+</body>
+</html>
+!DOCTYPE html>
+<html>
+<head>
+    <title>Панель пользователя</title>
+</head>
+<body>
+    <h1>Панель пользователя</h1>
+    <p>Только для обычных пользователей.</p>
+    <a href="{{ url_for('dashboard') }}">Назад</a>
+</body>
+</html>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Логин</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="container">
+        <h1 class="mt-5">Войти в систему</h1>
+        {{ get_flashed_messages() | safe }}
+        <form method="POST" class="mt-3">
+            <div class="form-group">
+                <label for="username">Логин:</label>
+                <input type="text" class="form-control" name="username" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Пароль:</label>
+                <input type="password" class="form-control" name="password" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Войти</button>
+        </form>
+    </div>
+</body>
+</html>
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Панель управления</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="container">
+        <h1 class="mt-5">Добро пожаловать, {{ username }}!</h1>
+        <p>Ваша роль: {{ role }}</p>
+        <a href="{{ url_for('logout') }}" class="btn btn-danger">Выйти</a>
+        <br>
+        <a href="{{ url_for('admin_panel') }}" class="btn btn-info mt-2">Admin Panel</a>
+        <a href="{{ url_for('user_panel') }}" class="btn btn-info mt-2">User Panel</a>
+    </div>
+</body>
+</html>
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Админ-панель</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="container">
+        <h1 class="mt-5">Админ-панель</h1>
+        <p>Только для администраторов.</p>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Назад</a>
+    </div>
+</body>
+</html>
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Панель пользователя</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="container">
+        <h1 class="mt-5">Панель пользователя</h1>
+        <p>Только для обычных пользователей.</p>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Назад</a>
+    </div>
+</body>
+</html>
+from flask import Flask, render_template, redirect, url_for, flash
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from forms import LoginForm
+from models import db, User
+from config import Config
+
+app = Flask(__name__)
+app.config.from_object(Config)
+
+db.init_app(app)
+login_manager = LoginManager(app)
+login_manager.login_view = 'login'
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    form = LoginForm()
+    if form.validate_on_submit():
+        user = User.query.filter_by(username=form.username.data).first()
+        if user and user.password == form.password.data:  # Убедитесь, что пароли хранятся в безопасном виде
+            login_user(user)
+            flash('Вы успешно вошли в систему!', 'success')
+            return redirect(url_for('dashboard'))
+        else:
+            flash('Неправильный логин или пароль.', 'danger')
+    return render_template('login.html', form=form)
+
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    return render_template('dashboard.html', username=current_user.username, role=current_user.role)
+
+@app.route('/admin')
+@login_required
+def admin_panel():
+    if current_user.role != 'admin':
+        flash('У вас нет доступа к этой странице.', 'danger')
+        return redirect(url_for('dashboard'))
+    return render_template('admin.html')
+
+@app.route('/user')
+@login_required
+def user_panel():
+    return render_template('user.html')
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    flash('Вы вышли из системы.', 'success')
+    return redirect(url_for('login'))
+
+if __name__ == '__main__':
+    with app.app_context():
+        db.create_all()  # Создайте таблицы в базе данных
+    app.run(debug=True)
